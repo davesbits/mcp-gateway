@@ -3,6 +3,8 @@ class MCPGatewayManager {
     constructor() {
         this.servers = new Map();
         this.activeServers = new Set();
+        this.catalogServers = new Map();
+        this.selectedCatalogFile = null;
         this.gatewayConfig = {
             port: 8811,
             transport: 'sse',
@@ -17,6 +19,7 @@ class MCPGatewayManager {
     async init() {
         await this.loadServers();
         this.loadSettings();
+        await this.loadCatalog();
     }
 
     // Server Management
@@ -39,6 +42,32 @@ class MCPGatewayManager {
             this.renderServers();
         } catch (error) {
             this.showError('Failed to load servers: ' + error.message);
+        }
+    }
+
+    async loadCatalog() {
+        try {
+            // Load catalog from the configured URL
+            const response = await fetch('/api/catalog/list');
+            if (!response.ok) {
+                console.warn('Failed to load catalog, using fallback data');
+                return;
+            }
+            const catalogData = await response.json();
+            
+            this.catalogServers.clear();
+            catalogData.forEach(server => {
+                this.catalogServers.set(server.name, server);
+            });
+            
+            console.log(`Loaded ${this.catalogServers.size} servers from catalog`);
+        } catch (error) {
+            console.warn('Failed to load catalog: ' + error.message);
+            // Use sample servers as fallback
+            const sampleServers = await this.getSampleServers();
+            sampleServers.forEach(server => {
+                this.catalogServers.set(server.name, server);
+            });
         }
     }
 
@@ -423,36 +452,59 @@ class MCPGatewayManager {
 
     async searchCatalog() {
         const query = document.getElementById('serverSearch').value;
-        if (query.length < 2) {
-            document.getElementById('catalogResults').innerHTML = '';
+        const resultsContainer = document.getElementById('catalogResults');
+        
+        // If query is empty, show all available catalog servers
+        let results;
+        if (query.length === 0) {
+            results = Array.from(this.catalogServers.values()).filter(server => !server.active);
+        } else if (query.length < 2) {
+            resultsContainer.innerHTML = '';
+            return;
+        } else {
+            // Search catalog servers
+            results = Array.from(this.catalogServers.values()).filter(server => 
+                !server.active && (
+                    server.name.toLowerCase().includes(query.toLowerCase()) ||
+                    server.description.toLowerCase().includes(query.toLowerCase()) ||
+                    (server.tools && server.tools.some(tool => tool.toLowerCase().includes(query.toLowerCase())))
+                )
+            );
+        }
+
+        if (results.length === 0) {
+            resultsContainer.innerHTML = '<p style="text-align: center; padding: 20px; color: #6c757d;">No servers found in catalog</p>';
             return;
         }
 
-        // Simulate catalog search
-        const results = Array.from(this.servers.values()).filter(server => 
-            !server.active && (
-                server.name.toLowerCase().includes(query.toLowerCase()) ||
-                server.description.toLowerCase().includes(query.toLowerCase())
-            )
-        );
-
         const resultsHTML = results.map(server => `
-            <div class="server-card" onclick="mcpManager.selectCatalogServer('${server.name}')">
+            <div class="server-card" onclick="mcpManager.selectCatalogServer('${server.name}')" style="cursor: pointer;">
                 <h4>${server.name}</h4>
                 <p>${server.description}</p>
                 <div class="server-meta">
                     <span class="meta-tag">📦 ${server.image}</span>
-                    <span class="meta-tag">🛠️ ${server.tools.length} tools</span>
+                    ${server.tools ? `<span class="meta-tag">🛠️ ${server.tools.length} tools</span>` : ''}
                 </div>
             </div>
         `).join('');
 
-        document.getElementById('catalogResults').innerHTML = resultsHTML;
+        resultsContainer.innerHTML = resultsHTML;
     }
 
     selectCatalogServer(serverName) {
         document.getElementById('serverName').value = serverName;
-        document.getElementById('catalogResults').innerHTML = '';
+        // Clear results to indicate selection
+        const resultsContainer = document.getElementById('catalogResults');
+        const selectedServer = this.catalogServers.get(serverName);
+        
+        if (selectedServer) {
+            resultsContainer.innerHTML = `
+                <div class="alert alert-info" style="margin: 10px 0;">
+                    <strong>Selected:</strong> ${serverName}
+                    <p style="margin: 5px 0 0 0; font-size: 0.9rem;">${selectedServer.description}</p>
+                </div>
+            `;
+        }
     }
 
     async addServer() {
@@ -477,19 +529,66 @@ class MCPGatewayManager {
 
     async importRegistry() {
         const url = document.getElementById('registryUrl').value.trim();
-        if (!url) {
-            this.showError('Please enter a registry URL');
+        const fileInput = document.getElementById('catalogFile');
+        
+        if (!url && !this.selectedCatalogFile) {
+            this.showError('Please enter a URL or select a file to import');
             return;
         }
 
         try {
-            // In real implementation, this would fetch from the URL
-            this.showSuccess(`Successfully imported servers from ${url}`);
+            let result;
+            
+            if (this.selectedCatalogFile) {
+                // Import from file
+                const formData = new FormData();
+                formData.append('file', this.selectedCatalogFile);
+                
+                const response = await fetch('/api/catalog/import', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                result = await response.json();
+                this.showSuccess(`Successfully imported catalog from file: ${this.selectedCatalogFile.name}`);
+            } else {
+                // Import from URL
+                const response = await fetch('/api/registry/import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                result = await response.json();
+                this.showSuccess(result.message);
+            }
+
+            // Reload catalog after import
+            await this.loadCatalog();
+            
+            // Clear inputs and close modal
+            document.getElementById('registryUrl').value = '';
+            fileInput.value = '';
+            this.selectedCatalogFile = null;
             closeModal('importModal');
-            await this.loadServers();
         } catch (error) {
-            this.showError(`Failed to import registry: ${error.message}`);
+            this.showError(`Failed to import: ${error.message}`);
         }
+    }
+
+    handleCatalogFileSelect(file) {
+        this.selectedCatalogFile = file;
+        console.log('Selected catalog file:', file.name);
     }
 
     async connectRemote() {
@@ -584,10 +683,30 @@ function showTab(tabName) {
 
 function showAddServerModal() {
     document.getElementById('addServerModal').style.display = 'block';
+    // Trigger initial catalog display (show all available servers)
+    mcpManager.searchCatalog();
 }
 
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+    // Clear the catalog results when closing add server modal
+    if (modalId === 'addServerModal') {
+        document.getElementById('catalogResults').innerHTML = '';
+        document.getElementById('serverName').value = '';
+        document.getElementById('serverSearch').value = '';
+    }
+    // Clear file selection when closing import modal
+    if (modalId === 'importModal') {
+        document.getElementById('registryUrl').value = '';
+        document.getElementById('catalogFile').value = '';
+        mcpManager.selectedCatalogFile = null;
+    }
+}
+
+function handleCatalogFileSelect(event) {
+    if (event.target.files && event.target.files[0]) {
+        mcpManager.handleCatalogFileSelect(event.target.files[0]);
+    }
 }
 
 function searchServers() {
