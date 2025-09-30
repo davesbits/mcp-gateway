@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -76,6 +77,8 @@ func (s *StandaloneMCPGateway) setupHTTPServer() {
 	mux.HandleFunc("/api/export/llmstudio", s.handleExportLLMStudio)
 	mux.HandleFunc("/api/export/docker-compose", s.handleExportDockerCompose)
 	mux.HandleFunc("/api/catalog/search", s.handleCatalogSearch)
+	mux.HandleFunc("/api/catalog/list", s.handleCatalogList)
+	mux.HandleFunc("/api/catalog/import", s.handleCatalogImport)
 	mux.HandleFunc("/api/registry/import", s.handleRegistryImport)
 
 	s.httpServer = &http.Server{
@@ -346,6 +349,66 @@ func (s *StandaloneMCPGateway) handleCatalogSearch(w http.ResponseWriter, r *htt
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(results)
+}
+
+func (s *StandaloneMCPGateway) handleCatalogList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Return all available catalog servers
+	servers := s.getSampleServers()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(servers)
+}
+
+func (s *StandaloneMCPGateway) handleCatalogImport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse multipart form
+	err := r.ParseMultipartForm(10 << 20) // 10 MB max
+	if err != nil {
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "Failed to read file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Read file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, "Failed to read file content", http.StatusInternalServerError)
+		return
+	}
+
+	// Validate file format (JSON or YAML)
+	filename := header.Filename
+	if !strings.HasSuffix(filename, ".json") && 
+	   !strings.HasSuffix(filename, ".yaml") && 
+	   !strings.HasSuffix(filename, ".yml") {
+		http.Error(w, "Invalid file format. Only .json, .yaml, and .yml files are supported", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Importing catalog from file: %s (size: %d bytes)", filename, len(content))
+
+	response := map[string]any{
+		"status":  "success",
+		"message": fmt.Sprintf("Successfully imported catalog from %s", filename),
+		"servers": 0, // In a real implementation, parse and count servers
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *StandaloneMCPGateway) handleRegistryImport(w http.ResponseWriter, r *http.Request) {

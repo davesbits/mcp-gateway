@@ -350,6 +350,81 @@
             overflow-x: auto;
         }
 
+        .help-icon {
+            display: inline-block;
+            font-size: 0.9rem;
+            margin-left: 5px;
+            cursor: help;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .help-icon:hover {
+            opacity: 1;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #dee2e6;
+            z-index: 0;
+        }
+
+        .divider span {
+            background: white;
+            padding: 0 15px;
+            position: relative;
+            z-index: 1;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .form-text {
+            display: block;
+            margin-top: 5px;
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+
+        .modal-description {
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        .catalog-results {
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .catalog-results:empty {
+            display: none;
+        }
+
+        .catalog-results .server-card {
+            cursor: pointer;
+            margin-bottom: 10px;
+            background: white;
+        }
+
+        .catalog-results .server-card:last-child {
+            margin-bottom: 0;
+        }
+
         @media (max-width: 768px) {
             .action-bar {
                 flex-direction: column;
@@ -386,10 +461,10 @@
         <!-- Servers Tab -->
         <div id="servers" class="tab-content active">
             <div class="action-bar">
-                <input type="text" class="search-box" placeholder="Search servers..." id="searchInput" oninput="searchServers()">
-                <button class="btn btn-primary" onclick="refreshServers()">🔄 Refresh</button>
-                <button class="btn btn-success" onclick="showAddServerModal()">➕ Add Server</button>
-                <button class="btn btn-secondary" onclick="importFromRegistry()">📥 Import Registry</button>
+                <input type="text" class="search-box" placeholder="Search servers..." id="searchInput" oninput="searchServers()" title="Search for servers by name, description, or tools">
+                <button class="btn btn-primary" onclick="refreshServers()" title="Refresh the list of servers from the gateway">🔄 Refresh</button>
+                <button class="btn btn-success" onclick="showAddServerModal()" title="Add a new MCP server from the catalog">➕ Add Server</button>
+                <button class="btn btn-secondary" onclick="importFromRegistry()" title="Import a catalog from URL or local file">📥 Import Catalog</button>
             </div>
 
             <div id="serversContent">
@@ -405,22 +480,31 @@
             <div class="config-section">
                 <h3>Gateway Configuration</h3>
                 <div class="form-group">
-                    <label for="gatewayPort">Gateway Port</label>
-                    <input type="number" class="form-control" id="gatewayPort" value="8811" min="1" max="65535">
+                    <label for="gatewayPort">
+                        Gateway Port
+                        <span class="help-icon" title="The port number on which the MCP gateway will listen for connections">ℹ️</span>
+                    </label>
+                    <input type="number" class="form-control" id="gatewayPort" value="8811" min="1" max="65535" title="Port number between 1 and 65535">
                 </div>
                 <div class="form-group">
-                    <label for="transport">Transport Protocol</label>
-                    <select class="form-control" id="transport">
+                    <label for="transport">
+                        Transport Protocol
+                        <span class="help-icon" title="The communication protocol used by the gateway. SSE is recommended for most clients.">ℹ️</span>
+                    </label>
+                    <select class="form-control" id="transport" title="Select the transport protocol for the gateway">
                         <option value="stdio">STDIO</option>
                         <option value="sse" selected>Server-Sent Events (SSE)</option>
                         <option value="streaming">Streaming</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="catalogUrl">Catalog URL</label>
-                    <input type="url" class="form-control" id="catalogUrl" value="https://desktop.docker.com/mcp/catalog/v2/catalog.yaml">
+                    <label for="catalogUrl">
+                        Default Catalog URL
+                        <span class="help-icon" title="The URL of the default catalog file containing available MCP servers">ℹ️</span>
+                    </label>
+                    <input type="url" class="form-control" id="catalogUrl" value="https://desktop.docker.com/mcp/catalog/v2/catalog.yaml" title="URL of the catalog file">
                 </div>
-                <button class="btn btn-primary" onclick="saveGatewayConfig()">💾 Save Configuration</button>
+                <button class="btn btn-primary" onclick="saveGatewayConfig()" title="Save the gateway configuration">💾 Save Configuration</button>
             </div>
         </div>
 
@@ -445,18 +529,21 @@
             <div class="config-section">
                 <h3>Gateway Settings</h3>
                 <div class="form-group">
-                    <label for="enableDynamicTools">
+                    <label for="enableDynamicTools" title="Enable dynamic discovery and loading of tools from MCP servers">
                         <input type="checkbox" id="enableDynamicTools" checked> Enable Dynamic Tools
+                        <span class="help-icon" title="Allow the gateway to dynamically discover and load tools from connected servers">ℹ️</span>
                     </label>
                 </div>
                 <div class="form-group">
-                    <label for="enableLogging">
+                    <label for="enableLogging" title="Enable detailed logging of all gateway calls and operations">
                         <input type="checkbox" id="enableLogging" checked> Enable Call Logging
+                        <span class="help-icon" title="Log all gateway calls and operations for debugging and monitoring">ℹ️</span>
                     </label>
                 </div>
                 <div class="form-group">
-                    <label for="enableTelemetry">
+                    <label for="enableTelemetry" title="Send anonymous usage data to help improve the gateway">
                         <input type="checkbox" id="enableTelemetry"> Enable Telemetry
+                        <span class="help-icon" title="Share anonymous usage statistics to help improve the MCP gateway">ℹ️</span>
                     </label>
                 </div>
                 <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
@@ -486,17 +573,28 @@
             <span class="close" onclick="closeModal('addServerModal')">&times;</span>
             <h2>Add MCP Server</h2>
             <div class="form-group">
-                <label for="serverName">Server Name</label>
-                <input type="text" class="form-control" id="serverName" placeholder="Enter server name">
+                <label for="serverName" title="Enter the name of the server you want to add to your gateway">
+                    Server Name
+                    <span class="help-icon" title="Enter the name of the server you want to add to your gateway">ℹ️</span>
+                </label>
+                <input type="text" class="form-control" id="serverName" placeholder="Enter server name or select from catalog below" title="Type a server name or search the catalog below">
             </div>
             <div class="form-group">
-                <label for="serverSearch">Search Available Servers</label>
-                <input type="text" class="form-control" id="serverSearch" placeholder="Search catalog..." oninput="searchCatalog()">
+                <label for="serverSearch">
+                    Search Available Servers in Catalog
+                    <span class="help-icon" title="Search through the available MCP servers in the catalog. Results will appear below.">ℹ️</span>
+                </label>
+                <input type="text" class="form-control" id="serverSearch" placeholder="Search catalog by name, description, or tools..." oninput="searchCatalog()" title="Type to search for servers by name, description, or available tools">
             </div>
-            <div id="catalogResults"></div>
+            <div id="catalogResults" class="catalog-results">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading catalog...</p>
+                </div>
+            </div>
             <div class="action-bar">
-                <button class="btn btn-success" onclick="addServer()">Add Server</button>
-                <button class="btn btn-secondary" onclick="closeModal('addServerModal')">Cancel</button>
+                <button class="btn btn-success" onclick="addServer()" title="Add the selected or typed server to your gateway">Add Server</button>
+                <button class="btn btn-secondary" onclick="closeModal('addServerModal')" title="Cancel and close this dialog">Cancel</button>
             </div>
         </div>
     </div>
@@ -505,14 +603,33 @@
     <div id="importModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('importModal')">&times;</span>
-            <h2>Import from Registry</h2>
+            <h2>Import Catalog</h2>
+            <p class="modal-description">Import a new catalog from a URL or upload a local file (.json or .yaml)</p>
+            
             <div class="form-group">
-                <label for="registryUrl">Registry URL</label>
-                <input type="url" class="form-control" id="registryUrl" placeholder="https://example.com/mcp-registry.json">
+                <label for="registryUrl">
+                    Catalog URL
+                    <span class="help-icon" title="Enter the URL of a catalog file hosted online (e.g., https://example.com/catalog.yaml)">ℹ️</span>
+                </label>
+                <input type="url" class="form-control" id="registryUrl" placeholder="https://example.com/mcp-catalog.json or .yaml" title="Enter the URL of an online catalog">
             </div>
+            
+            <div class="divider">
+                <span>OR</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="catalogFile">
+                    Upload Local Catalog File
+                    <span class="help-icon" title="Select a catalog file (.json or .yaml) from your local machine">ℹ️</span>
+                </label>
+                <input type="file" class="form-control" id="catalogFile" accept=".json,.yaml,.yml" onchange="handleCatalogFileSelect(event)" title="Choose a .json or .yaml catalog file from your computer">
+                <small class="form-text">Supported formats: .json, .yaml, .yml</small>
+            </div>
+            
             <div class="action-bar">
-                <button class="btn btn-primary" onclick="importRegistry()">Import</button>
-                <button class="btn btn-secondary" onclick="closeModal('importModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="importRegistry()" title="Import the catalog from URL or selected file">Import Catalog</button>
+                <button class="btn btn-secondary" onclick="closeModal('importModal')" title="Cancel and close this dialog">Cancel</button>
             </div>
         </div>
     </div>
